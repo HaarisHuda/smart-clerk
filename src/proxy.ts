@@ -17,8 +17,20 @@ function basicAuthValue(user: string, password: string): string {
 
 export function proxy(request: NextRequest) {
   const password = process.env.DASHBOARD_PASSWORD;
-  if (!password || isPublicPath(request.nextUrl.pathname)) {
+  if (isPublicPath(request.nextUrl.pathname)) {
     return NextResponse.next();
+  }
+
+  const authRequired =
+    process.env.NODE_ENV === "production" || process.env.DASHBOARD_AUTH_REQUIRED === "true";
+  if (!password) {
+    if (!authRequired) {
+      return NextResponse.next();
+    }
+
+    return new NextResponse("Dashboard authentication is not configured. Set DASHBOARD_PASSWORD.", {
+      status: 503,
+    });
   }
 
   const user = process.env.DASHBOARD_USER || "admin";

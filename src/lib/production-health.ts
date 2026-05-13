@@ -13,6 +13,10 @@ export function getProductionHealth() {
   const provider = process.env.WHATSAPP_PROVIDER || "web-demo";
   const requireProductionChecks = !demoMode;
   const requireCloud = provider === "cloud";
+  const requireDashboardAuth =
+    requireProductionChecks ||
+    process.env.NODE_ENV === "production" ||
+    process.env.DASHBOARD_AUTH_REQUIRED === "true";
 
   const checks: HealthCheck[] = [
     {
@@ -60,12 +64,12 @@ export function getProductionHealth() {
     {
       name: "dashboardAuth",
       ok: Boolean(process.env.DASHBOARD_PASSWORD),
-      required: requireProductionChecks,
+      required: requireDashboardAuth,
       detail: process.env.DASHBOARD_PASSWORD
         ? "Dashboard basic auth enabled"
-        : requireProductionChecks
+        : requireDashboardAuth
           ? "Dashboard basic auth disabled"
-          : "Dashboard auth optional in demo mode",
+          : "Dashboard auth optional in local dev",
     },
   ];
 

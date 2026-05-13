@@ -52,6 +52,20 @@ deterministic catalog/context parser and avoid external AI calls.
 - `/api/reserve` - race-safe reserve endpoint
 - `/api/voice-stock-update` - structured voice stock mutation
 
+## Dashboard Access
+
+The dashboard and all protected mutation APIs use HTTP Basic Auth through
+Next.js Proxy. Set these on Render before sharing the live link:
+
+```bash
+DASHBOARD_USER=admin
+DASHBOARD_PASSWORD=use-a-strong-demo-password
+```
+
+Only `/api/health`, `/api/whatsapp/cloud`, Next.js assets, and `favicon.ico`
+stay public. If `DASHBOARD_PASSWORD` is missing in a deployed production
+runtime, protected routes fail closed with `503` instead of exposing the app.
+
 ## Production Readiness
 
 For shop demos, keep `WHATSAPP_PROVIDER=web-demo` and use the QR flow at
