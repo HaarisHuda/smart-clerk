@@ -11,7 +11,7 @@ export function slugify(value: string): string {
 export function normalizeSearch(value: string): string {
   return value
     .toLowerCase()
-    .replace(/rs\.?|inr|rupees|rupaye|ka|ke|ki/g, " ")
+    .replace(/\b(?:rs|inr|rupees|rupaye|ka|ke|ki)\b\.?/g, " ")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();

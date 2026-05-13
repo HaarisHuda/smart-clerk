@@ -235,7 +235,12 @@ async function extractVoiceMutationWithAnthropic(transcript: string): Promise<Vo
       messages: [
         {
           role: "user",
-          content: `Extract the stock mutation from this owner transcript: ${transcript}`,
+          content: [
+            "Extract the stock mutation from this owner transcript.",
+            "For combined stock and price commands like 'add 10 Yonex grip tape price Rs 30', use action add, item Yonex grip tape, quantity 10, price 30.",
+            "Do not split combined add/create commands into a price-only update.",
+            `Transcript: ${transcript}`,
+          ].join("\n"),
         },
       ],
     });
@@ -269,6 +274,8 @@ async function extractVoiceMutationWithGemini(transcript: string): Promise<Voice
         "Return strict JSON only, with no markdown.",
         'Schema: {"action":"add|set|subtract|update_price|update_category|delete|unknown","item":string|null,"quantity":number|null,"price":number|null,"category":string|null,"confidence":number}',
         "Preserve the item phrase literally from the transcript. Do not replace it with a similar inventory item.",
+        "For combined stock and price commands like 'add 10 Yonex grip tape price Rs 30', use action add, item Yonex grip tape, quantity 10, price 30.",
+        "Do not split combined add/create commands into a price-only update.",
         "For price commands like 'update price to 20 rupees for SG cricket balls', use action update_price, price 20, item SG cricket balls, quantity null.",
         "For category commands like 'set category of media balls to Football', use action update_category, category Football, item media balls.",
         "For delete commands like 'delete SG cricket balls', use action delete.",
@@ -450,6 +457,18 @@ function heuristicVoiceMutation(transcript: string): VoiceMutation {
     };
   }
 
+  const stockAndPrice = extractStockAndPriceCommand(transcript);
+  if (stockAndPrice) {
+    return {
+      action: stockAndPrice.action,
+      item: stockAndPrice.item,
+      quantity: stockAndPrice.quantity,
+      price: stockAndPrice.price,
+      category: null,
+      confidence: 0.88,
+    };
+  }
+
   const explicitPrice = extractPriceCommand(text);
   if (explicitPrice) {
     return {
@@ -532,6 +551,91 @@ function extractCategoryCommand(text: string): { item: string; category: string 
       return { item, category };
     }
   }
+  return null;
+}
+
+function stockActionFromVerb(verb: string): "add" | "set" {
+  return verb.toLowerCase() === "set" ? "set" : "add";
+}
+
+function cleanVoiceItem(value: string): string {
+  return value
+    .replace(/\b(stock|quantity|qty|piece|pieces|pcs|price|rate|rupees|rupaye|rs|inr|to|as|at|for|with|of)\b\.?/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanVoiceCommand(value: string): string {
+  return value
+    .replace(/₹/g, " Rs ")
+    .replace(/[^a-zA-Z0-9.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractStockAndPriceCommand(
+  transcript: string,
+): { action: "add" | "set"; item: string; quantity: number; price: number } | null {
+  const text = cleanVoiceCommand(transcript);
+  const leadQuantityPatterns = [
+    /\b(add|create|new|set)\s+(\d+(?:\.\d+)?)\s+(.+?)\s+(?:price|rate)\s*(?:to|as|at|is)?\s*(?:rs\.?|inr|rupees|rupaye)?\s*(\d+(?:\.\d+)?)(?:\s*(?:rs\.?|inr|rupees|rupaye))?\b/i,
+    /\b(add|create|new|set)\s+(\d+(?:\.\d+)?)\s+(.+?)\s+(?:for|at)\s+(?:rs\.?|inr|rupees|rupaye)?\s*(\d+(?:\.\d+)?)(?:\s*(?:rs\.?|inr|rupees|rupaye))?\b/i,
+  ];
+
+  for (const pattern of leadQuantityPatterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const quantity = Number(match[2]);
+    const item = cleanVoiceItem(match[3]);
+    const price = Number(match[4]);
+    if (item && Number.isFinite(quantity) && Number.isFinite(price)) {
+      return {
+        action: stockActionFromVerb(match[1]),
+        item,
+        quantity: Math.max(1, Math.floor(quantity)),
+        price: Math.max(0, price),
+      };
+    }
+  }
+
+  const stockThenPricePatterns = [
+    /\b(add|create|new|set)\s+(.+?)\s+(?:stock|quantity|qty)\s*(?:to|as|at|is)?\s*(\d+(?:\.\d+)?)\s+(?:price|rate)\s*(?:to|as|at|is)?\s*(?:rs\.?|inr|rupees|rupaye)?\s*(\d+(?:\.\d+)?)(?:\s*(?:rs\.?|inr|rupees|rupaye))?\b/i,
+    /\b(add|create|new|set)\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(?:piece|pieces|pcs)?\s*(?:price|rate)\s*(?:to|as|at|is)?\s*(?:rs\.?|inr|rupees|rupaye)?\s*(\d+(?:\.\d+)?)(?:\s*(?:rs\.?|inr|rupees|rupaye))?\b/i,
+  ];
+
+  for (const pattern of stockThenPricePatterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const item = cleanVoiceItem(match[2]);
+    const quantity = Number(match[3]);
+    const price = Number(match[4]);
+    if (item && Number.isFinite(quantity) && Number.isFinite(price)) {
+      return {
+        action: stockActionFromVerb(match[1]),
+        item,
+        quantity: Math.max(1, Math.floor(quantity)),
+        price: Math.max(0, price),
+      };
+    }
+  }
+
+  const priceThenStockPattern =
+    /\b(add|create|new|set)\s+(.+?)\s+(?:price|rate)\s*(?:to|as|at|is)?\s*(?:rs\.?|inr|rupees|rupaye)?\s*(\d+(?:\.\d+)?)(?:\s*(?:rs\.?|inr|rupees|rupaye))?\s+(?:stock|quantity|qty)\s*(?:to|as|at|is)?\s*(\d+(?:\.\d+)?)\b/i;
+  const priceThenStockMatch = text.match(priceThenStockPattern);
+  if (priceThenStockMatch) {
+    const item = cleanVoiceItem(priceThenStockMatch[2]);
+    const price = Number(priceThenStockMatch[3]);
+    const quantity = Number(priceThenStockMatch[4]);
+    if (item && Number.isFinite(quantity) && Number.isFinite(price)) {
+      return {
+        action: stockActionFromVerb(priceThenStockMatch[1]),
+        item,
+        quantity: Math.max(1, Math.floor(quantity)),
+        price: Math.max(0, price),
+      };
+    }
+  }
+
   return null;
 }
 

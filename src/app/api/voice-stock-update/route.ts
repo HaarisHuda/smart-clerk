@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractVoiceMutation } from "@/lib/ai/intent";
 import {
   findCatalogItemMatch,
+  normalizeSearch,
   productFromInput,
 } from "@/lib/catalog/normalize";
 import {
@@ -113,9 +114,17 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  const shouldApplyPrice = typeof mutation.price === "number";
+  const nextPrice = shouldApplyPrice ? mutation.price ?? 0 : matched?.price ?? 0;
+  const repairedItemName =
+    matched && mutation.item && shouldRepairMatchedItemName(matched.itemName, mutation.item)
+      ? mutation.item.trim()
+      : matched?.itemName;
   const product = matched
     ? {
         ...matched,
+        itemName: repairedItemName ?? matched.itemName,
+        price: nextPrice,
         stockQuantity:
           mutation.action === "set"
             ? mutation.quantity ?? matched.stockQuantity
@@ -126,7 +135,7 @@ export async function POST(request: NextRequest) {
     : productFromInput({
         itemName: mutation.item,
         stockQuantity: mutation.quantity ?? 0,
-        price: 0,
+        price: nextPrice,
         category: "General",
         aliases: [],
       });
@@ -134,12 +143,50 @@ export async function POST(request: NextRequest) {
   const saved = await saveCatalogProduct(product);
   publishEvent({ type: "catalog.updated", product: saved });
   const created = !matched;
+  const priceMessage = shouldApplyPrice ? `, price Rs. ${saved.price}` : "";
   return NextResponse.json({
     mutation,
     applied: true,
     product: saved,
     message: created
-      ? `Created ${saved.itemName} with stock ${saved.stockQuantity}.`
-      : `Updated ${saved.itemName}: stock is now ${saved.stockQuantity}.`,
+      ? `Created ${saved.itemName} with stock ${saved.stockQuantity}${priceMessage}.`
+      : `Updated ${saved.itemName}: stock is now ${saved.stockQuantity}${priceMessage}.`,
   });
+}
+
+function itemNameTokens(value: string): string[] {
+  return normalizeSearch(value).split(" ").filter(Boolean);
+}
+
+function isLikelyTruncatedToken(existingToken: string, requestedToken: string): boolean {
+  return (
+    existingToken.length <= 3 &&
+    requestedToken.length - existingToken.length >= 2 &&
+    requestedToken.startsWith(existingToken)
+  );
+}
+
+function shouldRepairMatchedItemName(existingName: string, requestedName: string): boolean {
+  if (existingName.trim().toLowerCase() === requestedName.trim().toLowerCase()) {
+    return false;
+  }
+
+  const existingTokens = itemNameTokens(existingName);
+  const requestedTokens = itemNameTokens(requestedName);
+  if (!existingTokens.length || existingTokens.length !== requestedTokens.length) {
+    return false;
+  }
+
+  let repairedTokenCount = 0;
+  const compatible = existingTokens.every((existingToken, index) => {
+    const requestedToken = requestedTokens[index];
+    if (existingToken === requestedToken) return true;
+    if (isLikelyTruncatedToken(existingToken, requestedToken)) {
+      repairedTokenCount += 1;
+      return true;
+    }
+    return false;
+  });
+
+  return compatible && repairedTokenCount > 0;
 }
