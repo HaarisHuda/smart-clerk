@@ -81,6 +81,17 @@ WhatsApp Web before running the Next.js production build. Puppeteer is configure
 to keep that browser under `.cache/puppeteer` inside the project so the runtime
 can find the same binary after deployment.
 
+If the WhatsApp client starts and then stops before showing a QR, set this env
+var on Render and redeploy to stream Chrome startup errors into Render logs:
+
+```bash
+PUPPETEER_DUMPIO=true
+```
+
+You can also set `WHATSAPP_AUTH_DATA_PATH=/tmp/.wwebjs_auth` if Render cannot
+write the default `.wwebjs_auth` directory. This keeps the QR demo working, but
+the login can reset after a service restart because `/tmp` is ephemeral.
+
 ## Production Readiness
 
 For shop demos, keep `WHATSAPP_PROVIDER=web-demo` and use the QR flow at

@@ -14,8 +14,10 @@ type ClientLike = {
   on(event: "qr", handler: (qr: string) => unknown): void;
   on(event: "ready", handler: () => unknown): void;
   on(event: "message", handler: (message: unknown) => unknown): void;
-  on(event: "disconnected", handler: () => unknown): void;
+  on(event: "disconnected", handler: (reason?: string) => unknown): void;
   on(event: "auth_failure", handler: (message: string) => unknown): void;
+  on(event: "change_state", handler: (state: string) => unknown): void;
+  on(event: "loading_screen", handler: (percent: string | number, message: string) => unknown): void;
 };
 
 type ChatLike = {
@@ -56,6 +58,14 @@ function shouldDropBeforeProcessor(chatId: string): boolean {
   return false;
 }
 
+function isTruthyEnv(value: string | undefined): boolean {
+  return ["1", "true", "yes"].includes(String(value).toLowerCase());
+}
+
+function getAuthDataPath(): string {
+  return process.env.WHATSAPP_AUTH_DATA_PATH || path.join(process.cwd(), ".wwebjs_auth");
+}
+
 class WhatsAppWebDemoProvider implements MessagingProvider {
   name = "whatsapp-web-demo";
   private client: ClientLike | null = null;
@@ -73,14 +83,45 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
         import("whatsapp-web.js"),
         import("qrcode"),
       ]);
+      const authDataPath = getAuthDataPath();
 
       const client = new Client({
-        authStrategy: new LocalAuth({ clientId: "smart-clerk-demo" }),
+        authStrategy: new LocalAuth({
+          clientId: "smart-clerk-demo",
+          dataPath: authDataPath,
+        }),
         puppeteer: {
           headless: true,
-          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          dumpio: isTruthyEnv(process.env.PUPPETEER_DUMPIO),
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--no-first-run",
+            "--no-zygote",
+            "--disable-extensions",
+            "--disable-background-networking",
+            "--disable-default-apps",
+            "--disable-sync",
+            "--disable-features=site-per-process",
+            "--metrics-recording-only",
+            "--mute-audio",
+            "--hide-scrollbars",
+            "--single-process",
+          ],
         },
       }) as unknown as ClientLike;
+
+      console.info(`Starting WhatsApp Web client with auth data path: ${authDataPath}`);
+
+      client.on("loading_screen", (percent: string | number, message: string) => {
+        console.info(`WhatsApp Web loading ${percent}%: ${message}`);
+      });
+
+      client.on("change_state", (state: string) => {
+        console.info(`WhatsApp Web state changed: ${state}`);
+      });
 
       client.on("qr", async (qr: string) => {
         console.info("WhatsApp Web QR generated; scan it from the dashboard.");
@@ -120,8 +161,11 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
         });
       });
 
-      client.on("disconnected", () => {
-        console.warn("WhatsApp Web client disconnected.");
+      client.on("disconnected", (reason?: string) => {
+        this.lastError = reason
+          ? `WhatsApp Web disconnected: ${reason}`
+          : "WhatsApp Web disconnected before it became ready. Check Render logs for Chrome startup details.";
+        console.warn(this.lastError);
         this.ready = false;
         this.running = false;
       });
@@ -155,12 +199,18 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
   async resetSession(): Promise<void> {
     await this.stop();
     const root = process.cwd();
-    const authDir = path.join(root, ".wwebjs_auth", "session-smart-clerk-demo");
+    const authRoot = path.resolve(getAuthDataPath());
+    const authDir = path.join(authRoot, "session-smart-clerk-demo");
     const cacheDir = path.join(root, ".wwebjs_cache");
     for (const target of [authDir, cacheDir]) {
-      const relative = path.relative(root, target);
-      if (relative.startsWith("..") || path.isAbsolute(relative)) {
-        throw new Error("Refusing to reset WhatsApp session outside project directory");
+      const resolved = path.resolve(target);
+      const allowedRoots = [root, authRoot, "/tmp"];
+      const isAllowedTarget = allowedRoots.some((allowedRoot) => {
+        const relative = path.relative(path.resolve(allowedRoot), resolved);
+        return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+      });
+      if (!isAllowedTarget) {
+        throw new Error("Refusing to reset WhatsApp session outside an allowed runtime directory");
       }
       await fs.rm(target, { recursive: true, force: true });
     }
