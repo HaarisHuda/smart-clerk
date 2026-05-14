@@ -81,6 +81,7 @@ export default function SmartClerkDashboard() {
   const [customerStates, setCustomerStates] = useState([]);
   const [importCsv, setImportCsv] = useState("");
   const [syncNote, setSyncNote] = useState("Ready");
+  const [whatsappStatus, setWhatsappStatus] = useState({ running: false, ready: false, qrDataUrl: "", lastError: "" });
 
   const notify = (msg) => { setNotification(msg); setTimeout(() => setNotification(""), 3000); };
 
@@ -108,7 +109,7 @@ export default function SmartClerkDashboard() {
   };
 
   async function refreshAll() {
-    await Promise.all([refreshCatalog(), refreshOrders(), refreshConversations(), refreshDebug()]);
+    await Promise.all([refreshCatalog(), refreshOrders(), refreshConversations(), refreshDebug(), refreshWhatsAppStatus()]);
   }
 
   async function refreshCatalog() {
@@ -137,6 +138,36 @@ export default function SmartClerkDashboard() {
     const response = await fetch("/api/debug", { cache: "no-store" });
     const data = await response.json();
     if (data.settings) setAiActive(Boolean(data.settings.aiClerkActive));
+    if (data.whatsappStatus) setWhatsappStatus(data.whatsappStatus);
+  }
+
+  async function refreshWhatsAppStatus() {
+    const response = await fetch("/api/whatsapp/session", { cache: "no-store" });
+    const data = await response.json();
+    setWhatsappStatus(data);
+  }
+
+  async function updateWhatsAppSession(action) {
+    const response = await fetch("/api/whatsapp/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const data = await response.json();
+    setWhatsappStatus(data);
+    if (response.ok) {
+      notify(
+        action === "stop"
+          ? "WhatsApp client stopped"
+          : action === "reset"
+            ? "WhatsApp session reset. Start again for a fresh QR."
+            : data.ready
+              ? "WhatsApp client ready"
+              : "WhatsApp client starting. Scan QR when it appears."
+      );
+    } else {
+      notify(data.error || data.lastError || "WhatsApp session failed");
+    }
   }
 
   async function toggleAiActive() {
@@ -235,6 +266,13 @@ export default function SmartClerkDashboard() {
     };
     return () => events.close();
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void refreshWhatsAppStatus();
+    }, whatsappStatus.running && !whatsappStatus.ready ? 3000 : 10000);
+    return () => clearInterval(timer);
+  }, [whatsappStatus.running, whatsappStatus.ready]);
 
   useEffect(() => {
     const state = customerStates.find(s => s.customerPhone === selectedCustomer);
@@ -607,6 +645,77 @@ export default function SmartClerkDashboard() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ ...styles.card, marginTop: 20 }}>
+                <div style={{
+                  padding: "16px 20px", borderBottom: "1px solid #E8ECF0",
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                  flexWrap: "wrap"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Bot size={18} color={P.blue} />
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>WhatsApp live client</span>
+                    <span style={{
+                      background: whatsappStatus.ready ? "#DCFCE7" : whatsappStatus.running ? "#FEF3C7" : "#F1F5F9",
+                      color: whatsappStatus.ready ? "#166534" : whatsappStatus.running ? "#92400E" : "#64748B",
+                      fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
+                      textTransform: "uppercase"
+                    }}>
+                      {whatsappStatus.ready ? "Ready" : whatsappStatus.running ? "Starting" : "Stopped"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => void updateWhatsAppSession("start")} style={{
+                      padding: "8px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                      background: P.blue, color: "#fff", fontSize: 12, fontWeight: 700,
+                    }}>Start / show QR</button>
+                    <button onClick={() => void updateWhatsAppSession("stop")} style={{
+                      padding: "8px 14px", borderRadius: 8, border: "1px solid #E2E8F0", cursor: "pointer",
+                      background: "#fff", color: "#DC2626", fontSize: 12, fontWeight: 700,
+                    }}>Stop</button>
+                    <button onClick={() => void updateWhatsAppSession("reset")} style={{
+                      padding: "8px 14px", borderRadius: 8, border: "1px solid #E2E8F0", cursor: "pointer",
+                      background: "#fff", color: "#64748B", fontSize: 12, fontWeight: 700,
+                    }}>Reset QR</button>
+                  </div>
+                </div>
+                <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: "#475569", fontWeight: 500, marginBottom: 8 }}>
+                      {whatsappStatus.ready
+                        ? "Shop WhatsApp is linked. Text this number from another phone to test real AI replies."
+                        : whatsappStatus.running
+                          ? "WhatsApp Web is starting. Scan the QR when it appears; it can take a few seconds."
+                          : "Start the client after every server restart or Render wake-up before testing replies."}
+                    </div>
+                    {whatsappStatus.lastError && (
+                      <div style={{
+                        background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B",
+                        borderRadius: 8, padding: "10px 12px", fontSize: 12,
+                      }}>
+                        {whatsappStatus.lastError}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{
+                    width: 220, height: 220, borderRadius: 12, border: "1px dashed #CBD5E1",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: "#F8FAFC", textAlign: "center", color: "#64748B", fontSize: 12,
+                    overflow: "hidden"
+                  }}>
+                    {whatsappStatus.qrDataUrl ? (
+                      <img src={whatsappStatus.qrDataUrl} alt="WhatsApp QR" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    ) : whatsappStatus.ready ? (
+                      <div>
+                        <Check size={32} color={P.green} style={{ margin: "0 auto 8px" }} />
+                        Linked and ready
+                      </div>
+                    ) : (
+                      <div>QR appears here after starting</div>
+                    )}
                   </div>
                 </div>
               </div>

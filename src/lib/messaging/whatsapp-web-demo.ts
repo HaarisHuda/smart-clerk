@@ -15,6 +15,7 @@ type ClientLike = {
   on(event: "ready", handler: () => unknown): void;
   on(event: "message", handler: (message: unknown) => unknown): void;
   on(event: "disconnected", handler: () => unknown): void;
+  on(event: "auth_failure", handler: (message: string) => unknown): void;
 };
 
 type ChatLike = {
@@ -82,11 +83,13 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
       }) as unknown as ClientLike;
 
       client.on("qr", async (qr: string) => {
+        console.info("WhatsApp Web QR generated; scan it from the dashboard.");
         this.qrDataUrl = await qrcode.toDataURL(qr);
         this.ready = false;
       });
 
       client.on("ready", () => {
+        console.info("WhatsApp Web client is ready.");
         this.ready = true;
         this.qrDataUrl = undefined;
       });
@@ -102,6 +105,9 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
           isGroupChatId(message.from) ||
           isGroupChatId(message.to);
         if (shouldDropBeforeProcessor(chatId)) return;
+        console.info(
+          `WhatsApp inbound message received from ${chatId}${isGroup ? " (group)" : ""}: ${message.body.slice(0, 80)}`,
+        );
         await onMessage({
           from: chatId,
           body: message.body,
@@ -115,6 +121,14 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
       });
 
       client.on("disconnected", () => {
+        console.warn("WhatsApp Web client disconnected.");
+        this.ready = false;
+        this.running = false;
+      });
+
+      client.on("auth_failure", (message: string) => {
+        this.lastError = `WhatsApp auth failure: ${message}`;
+        console.warn(this.lastError);
         this.ready = false;
         this.running = false;
       });
