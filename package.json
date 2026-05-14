@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "render-build": "npx puppeteer browsers install chrome && next build",
     "start": "next start",
     "lint": "eslint",
     "eval:hinglish": "node scripts/run-hinglish-evals.mjs"

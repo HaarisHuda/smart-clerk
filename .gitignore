@@ -34,6 +34,7 @@ yarn-error.log*
 
 # local runtime state
 /data/*.json
+/.cache/
 /.wwebjs_auth/
 /.wwebjs_cache/
 

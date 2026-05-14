@@ -66,6 +66,21 @@ Only `/api/health`, `/api/whatsapp/cloud`, Next.js assets, and `favicon.ico`
 stay public. If `DASHBOARD_PASSWORD` is missing in a deployed production
 runtime, protected routes fail closed with `503` instead of exposing the app.
 
+## Render Deployment
+
+Use Render as a full-stack web service for the demo because `whatsapp-web.js`
+needs a long-running Node process.
+
+```bash
+Build Command: npm install && npm run render-build
+Start Command: npm run start
+```
+
+The `render-build` script installs the Puppeteer Chrome binary required by
+WhatsApp Web before running the Next.js production build. Puppeteer is configured
+to keep that browser under `.cache/puppeteer` inside the project so the runtime
+can find the same binary after deployment.
+
 ## Production Readiness
 
 For shop demos, keep `WHATSAPP_PROVIDER=web-demo` and use the QR flow at
