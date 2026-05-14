@@ -149,6 +149,9 @@ export type MessagingStatus = {
   provider: string;
   running: boolean;
   ready: boolean;
+  authenticated?: boolean;
+  state?: string;
+  loadingStatus?: string;
   qrDataUrl?: string;
   lastError?: string;
 };

@@ -12,6 +12,7 @@ type ClientLike = {
   destroy(): Promise<void>;
   sendMessage(to: string, body: string): Promise<unknown>;
   on(event: "qr", handler: (qr: string) => unknown): void;
+  on(event: "authenticated", handler: () => unknown): void;
   on(event: "ready", handler: () => unknown): void;
   on(event: "message", handler: (message: unknown) => unknown): void;
   on(event: "disconnected", handler: (reason?: string) => unknown): void;
@@ -71,12 +72,38 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
   private client: ClientLike | null = null;
   private running = false;
   private ready = false;
+  private authenticated = false;
+  private state: string | undefined;
+  private loadingStatus: string | undefined;
   private qrDataUrl: string | undefined;
   private lastError: string | undefined;
 
+  private async destroyClientQuietly(client = this.client): Promise<void> {
+    if (!client) return;
+    if (this.client === client) {
+      this.client = null;
+    }
+    try {
+      await client.destroy();
+    } catch (error) {
+      console.warn(
+        "WhatsApp Web client cleanup failed.",
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
   async start(onMessage: (message: IncomingCustomerMessage) => Promise<void>): Promise<void> {
     if (this.running) return;
+    if (this.client) {
+      await this.destroyClientQuietly();
+    }
     this.running = true;
+    this.ready = false;
+    this.authenticated = false;
+    this.state = "STARTING";
+    this.loadingStatus = "Launching WhatsApp Web";
+    this.qrDataUrl = undefined;
     this.lastError = undefined;
     try {
       const [{ Client, LocalAuth }, qrcode] = await Promise.all([
@@ -90,6 +117,12 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
           clientId: "smart-clerk-demo",
           dataPath: authDataPath,
         }),
+        authTimeoutMs: 120_000,
+        takeoverOnConflict: true,
+        takeoverTimeoutMs: 2_000,
+        qrMaxRetries: 6,
+        userAgent:
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         puppeteer: {
           headless: true,
           dumpio: isTruthyEnv(process.env.PUPPETEER_DUMPIO),
@@ -108,7 +141,6 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
             "--metrics-recording-only",
             "--mute-audio",
             "--hide-scrollbars",
-            "--single-process",
           ],
         },
       }) as unknown as ClientLike;
@@ -116,22 +148,39 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
       console.info(`Starting WhatsApp Web client with auth data path: ${authDataPath}`);
 
       client.on("loading_screen", (percent: string | number, message: string) => {
+        this.loadingStatus = `${percent}% ${message}`;
         console.info(`WhatsApp Web loading ${percent}%: ${message}`);
       });
 
       client.on("change_state", (state: string) => {
+        this.state = state;
         console.info(`WhatsApp Web state changed: ${state}`);
       });
 
       client.on("qr", async (qr: string) => {
         console.info("WhatsApp Web QR generated; scan it from the dashboard.");
+        this.authenticated = false;
+        this.state = "QR";
+        this.loadingStatus = "Waiting for QR scan";
         this.qrDataUrl = await qrcode.toDataURL(qr);
         this.ready = false;
       });
 
+      client.on("authenticated", () => {
+        console.info("WhatsApp Web authentication accepted; waiting for ready.");
+        this.authenticated = true;
+        this.state = "AUTHENTICATED";
+        this.loadingStatus = "Authenticated. Waiting for WhatsApp Web to finish loading.";
+        this.qrDataUrl = undefined;
+        this.lastError = undefined;
+      });
+
       client.on("ready", () => {
         console.info("WhatsApp Web client is ready.");
+        this.authenticated = true;
         this.ready = true;
+        this.state = "READY";
+        this.loadingStatus = "Ready";
         this.qrDataUrl = undefined;
       });
 
@@ -167,14 +216,20 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
           : "WhatsApp Web disconnected before it became ready. Check Render logs for Chrome startup details.";
         console.warn(this.lastError);
         this.ready = false;
+        this.authenticated = false;
         this.running = false;
+        this.loadingStatus = undefined;
+        void this.destroyClientQuietly(client);
       });
 
       client.on("auth_failure", (message: string) => {
         this.lastError = `WhatsApp auth failure: ${message}`;
         console.warn(this.lastError);
         this.ready = false;
+        this.authenticated = false;
         this.running = false;
+        this.loadingStatus = undefined;
+        void this.destroyClientQuietly(client);
       });
 
       this.client = client;
@@ -182,17 +237,19 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : "WhatsApp start failed";
       this.running = false;
+      this.authenticated = false;
+      this.loadingStatus = undefined;
       throw error;
     }
   }
 
   async stop(): Promise<void> {
-    if (this.client) {
-      await this.client.destroy();
-    }
-    this.client = null;
+    await this.destroyClientQuietly();
     this.running = false;
     this.ready = false;
+    this.authenticated = false;
+    this.state = undefined;
+    this.loadingStatus = undefined;
     this.qrDataUrl = undefined;
   }
 
@@ -229,6 +286,9 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
       provider: this.name,
       running: this.running,
       ready: this.ready,
+      authenticated: this.authenticated,
+      state: this.state,
+      loadingStatus: this.loadingStatus,
       qrDataUrl: this.qrDataUrl,
       lastError: this.lastError,
     };

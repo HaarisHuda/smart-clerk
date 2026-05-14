@@ -377,6 +377,31 @@ export default function SmartClerkDashboard() {
   };
 
   const P = { blue: "#2563EB", green: "#16A34A", red: "#DC2626", amber: "#D97706", purple: "#7C3AED", indigo: "#4F46E5", teal: "#0D9488" };
+  const whatsappPhase = whatsappStatus.ready
+    ? "Ready"
+    : whatsappStatus.authenticated
+      ? "Authenticated"
+      : whatsappStatus.qrDataUrl
+        ? "Scan QR"
+        : whatsappStatus.running
+          ? "Starting"
+          : "Stopped";
+  const whatsappPhaseColor = whatsappStatus.ready
+    ? P.green
+    : whatsappStatus.authenticated
+      ? P.blue
+      : whatsappStatus.running || whatsappStatus.qrDataUrl
+        ? P.amber
+        : "#64748B";
+  const whatsappHelperText = whatsappStatus.ready
+    ? "Shop WhatsApp is linked and ready. Text this number from another phone to test real AI replies."
+    : whatsappStatus.authenticated
+      ? "QR scan was accepted. Waiting for WhatsApp Web to finish loading on the server."
+      : whatsappStatus.qrDataUrl
+        ? "Scan this QR from the shop WhatsApp phone."
+        : whatsappStatus.running
+          ? "WhatsApp Web is starting. QR can take a few seconds to appear."
+          : "Start the client after every server restart or Render wake-up before testing replies.";
 
   return (
     <div style={styles.app}>
@@ -659,12 +684,12 @@ export default function SmartClerkDashboard() {
                     <Bot size={18} color={P.blue} />
                     <span style={{ fontSize: 14, fontWeight: 600 }}>WhatsApp live client</span>
                     <span style={{
-                      background: whatsappStatus.ready ? "#DCFCE7" : whatsappStatus.running ? "#FEF3C7" : "#F1F5F9",
-                      color: whatsappStatus.ready ? "#166534" : whatsappStatus.running ? "#92400E" : "#64748B",
+                      background: `${whatsappPhaseColor}18`,
+                      color: whatsappPhaseColor,
                       fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
                       textTransform: "uppercase"
                     }}>
-                      {whatsappStatus.ready ? "Ready" : whatsappStatus.running ? "Starting" : "Stopped"}
+                      {whatsappPhase}
                     </span>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
@@ -685,12 +710,16 @@ export default function SmartClerkDashboard() {
                 <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 13, color: "#475569", fontWeight: 500, marginBottom: 8 }}>
-                      {whatsappStatus.ready
-                        ? "Shop WhatsApp is linked. Text this number from another phone to test real AI replies."
-                        : whatsappStatus.running
-                          ? "WhatsApp Web is starting. Scan the QR when it appears; it can take a few seconds."
-                          : "Start the client after every server restart or Render wake-up before testing replies."}
+                      {whatsappHelperText}
                     </div>
+                    {(whatsappStatus.loadingStatus || whatsappStatus.state) && (
+                      <div style={{
+                        background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1E3A8A",
+                        borderRadius: 8, padding: "10px 12px", fontSize: 12, marginBottom: 8,
+                      }}>
+                        {whatsappStatus.loadingStatus || `State: ${whatsappStatus.state}`}
+                      </div>
+                    )}
                     {whatsappStatus.lastError && (
                       <div style={{
                         background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B",
@@ -712,6 +741,11 @@ export default function SmartClerkDashboard() {
                       <div>
                         <Check size={32} color={P.green} style={{ margin: "0 auto 8px" }} />
                         Linked and ready
+                      </div>
+                    ) : whatsappStatus.authenticated ? (
+                      <div>
+                        <Clock size={32} color={P.blue} style={{ margin: "0 auto 8px" }} />
+                        Authenticated, loading
                       </div>
                     ) : (
                       <div>QR appears here after starting</div>
