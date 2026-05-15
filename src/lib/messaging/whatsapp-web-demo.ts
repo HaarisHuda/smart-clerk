@@ -67,6 +67,16 @@ function getAuthDataPath(): string {
   return process.env.WHATSAPP_AUTH_DATA_PATH || path.join(process.cwd(), ".wwebjs_auth");
 }
 
+function getPuppeteerExecutablePath(): string | undefined {
+  return process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || undefined;
+}
+
+function getHeadlessMode(): boolean | "new" {
+  if (process.env.WHATSAPP_HEADLESS === "false") return false;
+  if (process.env.WHATSAPP_HEADLESS === "true") return true;
+  return "new";
+}
+
 class WhatsAppWebDemoProvider implements MessagingProvider {
   name = "whatsapp-web-demo";
   private client: ClientLike | null = null;
@@ -121,10 +131,9 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
         takeoverOnConflict: true,
         takeoverTimeoutMs: 2_000,
         qrMaxRetries: 6,
-        userAgent:
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         puppeteer: {
-          headless: true,
+          headless: getHeadlessMode(),
+          executablePath: getPuppeteerExecutablePath(),
           dumpio: isTruthyEnv(process.env.PUPPETEER_DUMPIO),
           args: [
             "--no-sandbox",
@@ -132,15 +141,12 @@ class WhatsAppWebDemoProvider implements MessagingProvider {
             "--disable-dev-shm-usage",
             "--disable-gpu",
             "--no-first-run",
-            "--no-zygote",
+            "--disable-accelerated-2d-canvas",
             "--disable-extensions",
-            "--disable-background-networking",
-            "--disable-default-apps",
-            "--disable-sync",
-            "--disable-features=site-per-process",
-            "--metrics-recording-only",
+            "--disable-features=Translate,BackForwardCache,AcceptCHFrame,MediaRouter,OptimizationHints",
+            "--password-store=basic",
+            "--use-mock-keychain",
             "--mute-audio",
-            "--hide-scrollbars",
           ],
         },
       }) as unknown as ClientLike;

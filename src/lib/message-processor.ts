@@ -172,11 +172,7 @@ async function processIncomingCustomerMessageUnlocked(
       });
       if (result.ok) {
         reply = `Done ji. ${result.order.quantity}x ${result.order.itemName} pack kar diya. Counter par Rs. ${result.order.amount} collect hoga.`;
-        await saveContextState(state, {
-          lastProductId: result.order.productId,
-          lastIntent: "reserve_item",
-          awaitingQuantity: false,
-        });
+        await clearContextState(state);
         await notifyOwner(
           `New pickup order from ${incoming.customerName || incoming.from}: ${result.order.quantity}x ${result.order.itemName}. Collect Rs. ${result.order.amount} at counter.`,
           options,
@@ -269,11 +265,24 @@ async function handleContextualFollowUp(params: {
   let reply: string | null = null;
   let awaitingQuantity = state.awaitingQuantity ?? true;
   let lastIntent = state.lastIntent ?? "ambiguous";
+  let shouldCloseContext = false;
+
+  if (state.awaitingQuantity === false && isSettledAcknowledgement(text)) {
+    await clearContextState(state);
+    await recordIgnoredMessage(incoming, "post_order_ack");
+    return {
+      reply: "Post-order acknowledgement ignored.",
+      handledByAi: false,
+      replySource: "ignored",
+      ignoredReason: "post_order_ack",
+    };
+  }
 
   if (isLaterOrDecline(text)) {
     reply = `Theek hai ji. Jab chahiye ho message kar dena, main ${contextualProduct.itemName} ka stock check kar dunga.`;
     awaitingQuantity = false;
     lastIntent = "ambiguous";
+    shouldCloseContext = true;
   } else if (quantity && state.awaitingQuantity !== false) {
     const result = await reserveItem({
       customerPhone: incoming.from,
@@ -284,6 +293,7 @@ async function handleContextualFollowUp(params: {
     const handled = await replyFromReservation(result, incoming, options);
     reply = handled.reply;
     awaitingQuantity = handled.awaitingQuantity;
+    shouldCloseContext = handled.shouldCloseContext;
     lastIntent = "reserve_item";
   } else if (quantity) {
     reply = `${quantity}x ${contextualProduct.itemName} pack karna hai? Confirm karne ke liye "${quantity} pack kar do" bhej dijiye.`;
@@ -299,6 +309,7 @@ async function handleContextualFollowUp(params: {
     const handled = await replyFromReservation(result, incoming, options);
     reply = handled.reply;
     awaitingQuantity = handled.awaitingQuantity;
+    shouldCloseContext = handled.shouldCloseContext;
     lastIntent = "reserve_item";
   } else if (isReserveFollowUp(text) || isAffirmative(text)) {
     if (state.awaitingQuantity !== false) {
@@ -326,11 +337,15 @@ async function handleContextualFollowUp(params: {
 
   if (!reply) return null;
 
-  await saveContextState(state, {
-    lastProductId: contextualProduct.id,
-    lastIntent,
-    awaitingQuantity,
-  });
+  if (shouldCloseContext) {
+    await clearContextState(state);
+  } else {
+    await saveContextState(state, {
+      lastProductId: contextualProduct.id,
+      lastIntent,
+      awaitingQuantity,
+    });
+  }
 
   await logConversation({
     customerPhone: incoming.from,
@@ -351,7 +366,7 @@ async function replyFromReservation(
   result: Awaited<ReturnType<typeof reserveItem>>,
   incoming: IncomingCustomerMessage,
   options: MessageProcessorOptions,
-): Promise<{ reply: string; awaitingQuantity: boolean }> {
+): Promise<{ reply: string; awaitingQuantity: boolean; shouldCloseContext: boolean }> {
   if (result.ok) {
     await notifyOwner(
       `New pickup order from ${incoming.customerName || incoming.from}: ${result.order.quantity}x ${result.order.itemName}. Collect Rs. ${result.order.amount} at counter.`,
@@ -360,6 +375,7 @@ async function replyFromReservation(
     return {
       reply: `Done ji. ${result.order.quantity}x ${result.order.itemName} pack kar diya. Counter par Rs. ${result.order.amount} collect hoga.`,
       awaitingQuantity: false,
+      shouldCloseContext: true,
     };
   }
 
@@ -367,12 +383,14 @@ async function replyFromReservation(
     return {
       reply: `Sorry ji, ${result.product.itemName} ke sirf ${result.product.stockQuantity} piece bache hain. Quantity kam kar dun?`,
       awaitingQuantity: true,
+      shouldCloseContext: false,
     };
   }
 
   return {
     reply: "Sorry ji, ye item catalog me nahi mil raha. Thoda exact naam bhej dijiye.",
     awaitingQuantity: false,
+    shouldCloseContext: true,
   };
 }
 
@@ -497,6 +515,18 @@ async function saveContextState(
   });
 }
 
+async function clearContextState(
+  state: Awaited<ReturnType<typeof getCustomerState>>,
+): Promise<void> {
+  await saveCustomerState({
+    ...state,
+    lastProductId: undefined,
+    lastIntent: undefined,
+    awaitingQuantity: false,
+    contextExpiresAt: undefined,
+  });
+}
+
 function nextContextExpiry(): string {
   return new Date(Date.now() + CONTEXT_TTL_MS).toISOString();
 }
@@ -529,6 +559,12 @@ function isReserveFollowUp(text: string): boolean {
 
 function isAffirmative(text: string): boolean {
   return /^(haan|ha|yes|ok|okay|theek|thik|sure|final)(\s|$)/.test(text);
+}
+
+function isSettledAcknowledgement(text: string): boolean {
+  return /^(ok|okay|theek|thik|thanks|thank you|done|haan|ha|yes|sure|acha|achha|accha|ji|jee)$/.test(
+    text,
+  );
 }
 
 function isLaterOrDecline(text: string): boolean {
