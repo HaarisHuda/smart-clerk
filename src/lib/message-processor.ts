@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { extractIntent, getIntentThreshold } from "./ai/intent";
-import { findCatalogItemMatch, normalizeSearch } from "./catalog/normalize";
+import { findCatalogItemMatch, findCatalogItemMatches, normalizeSearch } from "./catalog/normalize";
 import { getCachedCatalog } from "./catalog/cache";
 import { publishEvent } from "./events";
 import {
@@ -135,7 +135,20 @@ async function processIncomingCustomerMessageUnlocked(
     };
   }
 
-  const explicitMatch = findCatalogItemMatch(catalog.products, incoming.body);
+  const explicitMatches = findCatalogItemMatches(catalog.products, incoming.body);
+  const explicitMatch =
+    explicitMatches.length === 1
+      ? explicitMatches[0]
+      : findCatalogItemMatch(catalog.products, incoming.body);
+  const catalogListReply = await handleCatalogListQuery({
+    incoming,
+    options,
+    state,
+    matches: explicitMatches,
+  });
+  if (catalogListReply) {
+    return catalogListReply;
+  }
   const contextualReply = await handleContextualFollowUp({
     incoming,
     options,
@@ -185,7 +198,10 @@ async function processIncomingCustomerMessageUnlocked(
           awaitingQuantity: true,
         });
       } else {
-        reply = "Sorry ji, ye item catalog me nahi mil raha. Thoda exact naam bhej dijiye.";
+        const requestedItem = extractRequestedItemLabel(incoming.body) ?? itemFromContext;
+        reply = requestedItem
+          ? `Sorry ji, ${requestedItem} abhi stock me nahi hai. Koi aur item chahiye ho to naam bhej dijiye.`
+          : "Sorry ji, ye item catalog me nahi mil raha. Thoda exact naam bhej dijiye.";
       }
     }
   } else {
@@ -226,6 +242,11 @@ async function processIncomingCustomerMessageUnlocked(
         lastIntent: intent.intent,
         awaitingQuantity: false,
       });
+    } else if (isUnavailableCatalogQuery(incoming.body, intent.intent)) {
+      const requestedItem = extractRequestedItemLabel(incoming.body);
+      reply = requestedItem
+        ? `Sorry ji, ${requestedItem} abhi stock me nahi hai. Koi aur sports item chahiye ho to naam bhej dijiye.`
+        : "Kaunsa item chahiye ji? Item ka naam bhej dijiye, main stock check kar deta hun.";
     } else if (intent.intent === "greeting") {
       reply = "Namaste ji. Kaunsa sports item chahiye? Naam bhejiye, main stock aur price check kar deta hun.";
     } else {
@@ -247,6 +268,57 @@ async function processIncomingCustomerMessageUnlocked(
   }
 
   return { reply, handledByAi: true, replySource };
+}
+
+async function handleCatalogListQuery(params: {
+  incoming: IncomingCustomerMessage;
+  options: MessageProcessorOptions;
+  state: Awaited<ReturnType<typeof getCustomerState>>;
+  matches: Awaited<ReturnType<typeof getCachedCatalog>>["products"];
+}): Promise<ProcessorResult | null> {
+  const { incoming, options, state, matches } = params;
+  const requestedItem = extractRequestedItemLabel(incoming.body);
+  if (!requestedItem || !shouldListCatalogMatches(incoming.body, matches)) return null;
+
+  const inStock = matches.filter((product) => product.stockQuantity > 0);
+  let reply: string;
+
+  if (!inStock.length) {
+    reply = `Sorry ji, ${requestedItem} abhi stock me nahi hai. Koi aur item chahiye ho to naam bhej dijiye.`;
+    await clearContextState(state);
+  } else if (inStock.length === 1) {
+    const product = inStock[0];
+    reply = `Haan ji, ${requestedItem} me ${product.itemName} available hai. Rs. ${product.price} ka hai (${product.stockQuantity} piece stock). Kitne piece pack karun?`;
+    await saveContextState(state, {
+      lastProductId: product.id,
+      lastIntent: "stock_query",
+      awaitingQuantity: true,
+    });
+  } else {
+    const optionsList = inStock
+      .slice(0, 6)
+      .map(
+        (product, index) =>
+          `${index + 1}. ${product.itemName} - Rs. ${product.price} (${product.stockQuantity} pcs)`,
+      )
+      .join("\n");
+    reply = `Haan ji, ${requestedItem} me ye options available hain:\n${optionsList}\nKaunsa brand pack karun?`;
+    await clearContextState(state);
+  }
+
+  await logConversation({
+    customerPhone: incoming.from,
+    direction: "outbound",
+    actor: "ai",
+    body: reply,
+    replySource: "local",
+  });
+
+  if (options.sendViaProvider) {
+    await getMessagingProvider(options).sendMessage({ to: incoming.from, body: reply });
+  }
+
+  return { reply, handledByAi: true, replySource: "local" };
 }
 
 async function handleContextualFollowUp(params: {
@@ -580,6 +652,76 @@ function isStockFollowUp(text: string): boolean {
 function asksStockCount(message: string): boolean {
   const text = normalizeSearch(message);
   return /\b(kitne|kitna|stock|bache|bachi|pass|paas)\b/.test(text);
+}
+
+const requestedItemStopTokens = new Set([
+  "aapke",
+  "aapka",
+  "available",
+  "bata",
+  "batao",
+  "bataiye",
+  "bhai",
+  "bhaiya",
+  "bro",
+  "chahiye",
+  "hai",
+  "hain",
+  "he",
+  "item",
+  "ji",
+  "kaunsa",
+  "kitna",
+  "kitne",
+  "kya",
+  "list",
+  "me",
+  "milega",
+  "mil",
+  "paas",
+  "pack",
+  "pass",
+  "price",
+  "rate",
+  "sir",
+  "stock",
+  "to",
+  "ye",
+  "yeh",
+]);
+
+function requestedItemTokens(message: string): string[] {
+  return normalizeSearch(message)
+    .split(" ")
+    .filter((token) => token.length > 1 && !requestedItemStopTokens.has(token));
+}
+
+function extractRequestedItemLabel(message: string): string | null {
+  const tokens = requestedItemTokens(message);
+  return tokens.length ? tokens.join(" ") : null;
+}
+
+function shouldListCatalogMatches(
+  message: string,
+  matches: Awaited<ReturnType<typeof getCachedCatalog>>["products"],
+): boolean {
+  if (!matches.length) return false;
+  if (matches.length > 1) return true;
+
+  const tokens = requestedItemTokens(message);
+  if (tokens.length !== 1) return false;
+
+  const token = tokens[0];
+  if (genericTokens.has(token)) return true;
+  return matches.some((product) => normalizeSearch(product.category) === token);
+}
+
+function isUnavailableCatalogQuery(message: string, intent: string): boolean {
+  if (!extractRequestedItemLabel(message)) return false;
+  if (intent === "stock_query" || intent === "price_query") return true;
+
+  const text = normalizeSearch(message);
+  return /\b(hai kya|available|milega|stock|price|rate|chahiye)\b/.test(text);
 }
 
 function isPriceFollowUp(text: string): boolean {

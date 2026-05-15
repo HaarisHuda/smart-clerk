@@ -18,11 +18,27 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const transcript = String(body.transcript ?? "");
   const mutation = await extractVoiceMutation(transcript);
+  const createSkuCommand = extractCreateSkuCommand(transcript);
+  if (
+    createSkuCommand &&
+    mutation.action === "update_price" &&
+    typeof mutation.price === "number"
+  ) {
+    mutation.action = "add";
+    mutation.item = createSkuCommand.item;
+    mutation.quantity = createSkuCommand.quantity;
+    mutation.price = createSkuCommand.price ?? mutation.price;
+    mutation.confidence = Math.max(mutation.confidence, 0.86);
+  }
   const isPriceUpdate = mutation.action === "update_price";
   const isCategoryUpdate = mutation.action === "update_category";
   const isDelete = mutation.action === "delete";
+  const isCreateSkuCommand =
+    Boolean(createSkuCommand) && mutation.action === "add" && typeof mutation.price === "number";
   const hasRequiredValue =
-    isPriceUpdate
+    isCreateSkuCommand
+      ? true
+      : isPriceUpdate
       ? typeof mutation.price === "number"
       : isCategoryUpdate
         ? Boolean(mutation.category)
@@ -38,7 +54,13 @@ export async function POST(request: NextRequest) {
   }
 
   const catalog = await getCachedCatalog();
-  const matched = findCatalogItemMatch(catalog.products, mutation.item);
+  const initialMatch = findCatalogItemMatch(catalog.products, mutation.item);
+  const matched =
+    isCreateSkuCommand && initialMatch && mutation.item
+      ? isStrongExistingSkuMatch(initialMatch, mutation.item)
+        ? initialMatch
+        : null
+      : initialMatch;
 
   if (isCategoryUpdate) {
     if (!matched) {
@@ -156,6 +178,86 @@ export async function POST(request: NextRequest) {
 
 function itemNameTokens(value: string): string[] {
   return normalizeSearch(value).split(" ").filter(Boolean);
+}
+
+function cleanVoiceLiteral(value: string): string {
+  return value
+    .replace(/₹/g, " Rs ")
+    .replace(/[^a-zA-Z0-9.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanCreatedItemName(value: string): string {
+  return value
+    .replace(/\b(item|sku|product|price|rate|for|at|to|as|is|rs|inr|rupees|rupaye)\b\.?/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractCreateSkuCommand(
+  transcript: string,
+): { item: string; price: number; quantity: number | null } | null {
+  const text = cleanVoiceLiteral(transcript);
+  const patterns = [
+    /\b(?:add|create|new)\s+(?!\d+\b)(.+?)\s+(?:price|rate)\s*(?:to|as|at|is)?\s*(?:rs\.?|inr|rupees|rupaye)?\s*(\d+(?:\.\d+)?)(?:\s*(?:rs\.?|inr|rupees|rupaye))?\b/i,
+    /\b(?:add|create|new)\s+(?!\d+\b)(.+?)\s+(?:for|at)\s+(?:rs\.?|inr|rupees|rupaye)?\s*(\d+(?:\.\d+)?)(?:\s*(?:rs\.?|inr|rupees|rupaye))?\b/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const item = cleanCreatedItemName(match[1]);
+    const price = Number(match[2]);
+    if (item && Number.isFinite(price)) {
+      return { item, price: Math.max(0, price), quantity: null };
+    }
+  }
+
+  return null;
+}
+
+function isGenericItemToken(token: string): boolean {
+  return ["ball", "bat", "racket", "racquet", "item", "piece", "pc", "pcs"].includes(token);
+}
+
+function tokenSimilarity(a: string, b: string): number {
+  if (a === b) return 1;
+  const distance = levenshtein(a, b);
+  return (Math.max(a.length, b.length) - distance) / Math.max(a.length, b.length);
+}
+
+function levenshtein(a: string, b: string): number {
+  const dp = Array.from({ length: a.length + 1 }, (_, row) =>
+    Array.from({ length: b.length + 1 }, (_, col) => (row === 0 ? col : col === 0 ? row : 0)),
+  );
+  for (let row = 1; row <= a.length; row += 1) {
+    for (let col = 1; col <= b.length; col += 1) {
+      const cost = a[row - 1] === b[col - 1] ? 0 : 1;
+      dp[row][col] = Math.min(
+        dp[row - 1][col] + 1,
+        dp[row][col - 1] + 1,
+        dp[row - 1][col - 1] + cost,
+      );
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+function isStrongExistingSkuMatch(
+  existing: NonNullable<ReturnType<typeof findCatalogItemMatch>>,
+  requestedName: string,
+): boolean {
+  const requestedTokens = itemNameTokens(requestedName).filter((token) => !isGenericItemToken(token));
+  const existingTokens = [
+    ...itemNameTokens(existing.itemName),
+    ...existing.aliases.flatMap(itemNameTokens),
+  ];
+  if (!requestedTokens.length || !existingTokens.length) return false;
+
+  return requestedTokens.every((requestedToken) =>
+    existingTokens.some((existingToken) => tokenSimilarity(requestedToken, existingToken) >= 0.82),
+  );
 }
 
 function isLikelyTruncatedToken(existingToken: string, requestedToken: string): boolean {

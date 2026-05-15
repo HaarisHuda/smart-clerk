@@ -76,6 +76,41 @@ const genericItemTokens = new Set([
   "unit",
 ]);
 
+const queryStopWords = new Set([
+  "aapke",
+  "aapka",
+  "add",
+  "available",
+  "bata",
+  "batao",
+  "bataiye",
+  "bhai",
+  "bhaiya",
+  "bro",
+  "chahiye",
+  "create",
+  "hai",
+  "hain",
+  "he",
+  "ji",
+  "kya",
+  "me",
+  "milega",
+  "mil",
+  "new",
+  "packet",
+  "paas",
+  "pack",
+  "pass",
+  "price",
+  "rate",
+  "sir",
+  "stock",
+  "to",
+  "wala",
+  "wali",
+]);
+
 function hasMeaningfulTokenMatch(query: string, itemTerms: string[]): boolean {
   const queryTokens = query
     .split(" ")
@@ -88,6 +123,77 @@ function hasMeaningfulTokenMatch(query: string, itemTerms: string[]): boolean {
   return queryTokens.some((queryToken) =>
     targetTokens.some((targetToken) => similarity(queryToken, targetToken) >= 0.75),
   );
+}
+
+function searchableQueryTokens(query: string): string[] {
+  return normalizeComparable(query)
+    .split(" ")
+    .filter((token) => token.length > 1 && !queryStopWords.has(token));
+}
+
+function productTerms(product: CatalogProduct, includeCategory: boolean): string[] {
+  return [
+    product.itemName,
+    ...(includeCategory ? [product.category] : []),
+    ...product.aliases,
+  ]
+    .map(normalizeComparable)
+    .filter(Boolean);
+}
+
+function productTokenScore(token: string, targetTokens: string[]): number {
+  return Math.max(
+    ...targetTokens.map((targetToken) => {
+      if (token.length <= 3 || targetToken.length <= 3) {
+        return token === targetToken ? 1 : 0;
+      }
+      return similarity(token, targetToken);
+    }),
+  );
+}
+
+function scoreProductQuery(product: CatalogProduct, query: string, includeCategory: boolean): number {
+  const queryTokens = searchableQueryTokens(query);
+  if (!queryTokens.length) return 0;
+
+  const terms = productTerms(product, includeCategory);
+  const targetTokens = terms.flatMap((term) => term.split(" ").filter(Boolean));
+  if (!targetTokens.length) return 0;
+
+  const compactQuery = queryTokens.join(" ");
+  const exactTerm = terms.includes(compactQuery);
+  const tokenScores = queryTokens.map((token) => productTokenScore(token, targetTokens));
+  const allTokensMatched = tokenScores.every((score) => score >= 0.75);
+  if (!exactTerm && !allTokensMatched) return 0;
+
+  const averageTokenScore =
+    tokenScores.reduce((sum, score) => sum + score, 0) / tokenScores.length;
+  const exactHits = tokenScores.filter((score) => score === 1).length;
+  const phraseSimilarity = Math.max(...terms.map((term) => similarity(compactQuery, term)));
+
+  return (
+    (exactTerm ? 110 : 0) +
+    averageTokenScore * 55 +
+    exactHits * 12 +
+    phraseSimilarity * 25
+  );
+}
+
+export function findCatalogItemMatches(
+  products: CatalogProduct[],
+  query: string | null | undefined,
+): CatalogProduct[] {
+  if (!query) return [];
+
+  return products
+    .filter((product) => product.active)
+    .map((product) => ({
+      product,
+      score: scoreProductQuery(product, query, true),
+    }))
+    .filter((entry) => entry.score >= 62)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.product);
 }
 
 function scoreItemTerms(itemTerms: string[], normalizedQuery: string): number {
@@ -114,7 +220,11 @@ export function findCatalogItemMatch(
   products: CatalogProduct[],
   query: string | null | undefined,
 ): CatalogProduct | null {
+  const matches = findCatalogItemMatches(products, query);
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) return null;
   if (!query) return null;
+  if (searchableQueryTokens(query).length > 1) return null;
   const normalizedQuery = normalizeComparable(query);
   if (!normalizedQuery) return null;
 
