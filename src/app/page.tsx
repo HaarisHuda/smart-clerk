@@ -82,6 +82,7 @@ export default function SmartClerkDashboard() {
   const [importCsv, setImportCsv] = useState("");
   const [syncNote, setSyncNote] = useState("Ready");
   const [whatsappStatus, setWhatsappStatus] = useState({ running: false, ready: false, qrDataUrl: "", lastError: "" });
+  const [isMobile, setIsMobile] = useState(false);
 
   const notify = (msg) => { setNotification(msg); setTimeout(() => setNotification(""), 3000); };
 
@@ -251,6 +252,14 @@ export default function SmartClerkDashboard() {
   }
 
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 760px)");
+    const updateViewport = () => setIsMobile(media.matches);
+    updateViewport();
+    media.addEventListener?.("change", updateViewport);
+    return () => media.removeEventListener?.("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
     void refreshAll();
     const events = new EventSource("/api/events");
     events.onmessage = message => {
@@ -364,15 +373,58 @@ export default function SmartClerkDashboard() {
   };
 
   const styles = {
-    app: { fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif", background: "#F7F8FA", minHeight: "100vh", color: "#1A1D21" },
-    sidebar: { width: 220, background: "#FFFFFF", borderRight: "1px solid #E8ECF0", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 50 },
-    main: { marginLeft: 220, minHeight: "100vh" },
-    header: { background: "#FFFFFF", borderBottom: "1px solid #E8ECF0", padding: "0 32px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40 },
-    content: { padding: "24px 32px" },
+    app: {
+      fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
+      background: "#F7F8FA",
+      minHeight: "100vh",
+      width: "100%",
+      maxWidth: "100vw",
+      overflowX: "hidden",
+      color: "#1A1D21",
+    },
+    sidebar: isMobile
+      ? {
+          width: "100%",
+          background: "#FFFFFF",
+          borderBottom: "1px solid #E8ECF0",
+          display: "flex",
+          flexDirection: "column",
+          position: "sticky",
+          top: 0,
+          zIndex: 60,
+        }
+      : {
+          width: 220,
+          background: "#FFFFFF",
+          borderRight: "1px solid #E8ECF0",
+          display: "flex",
+          flexDirection: "column",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          zIndex: 50,
+        },
+    main: { marginLeft: isMobile ? 0 : 220, minHeight: "100vh", minWidth: 0, width: isMobile ? "100%" : "auto" },
+    header: {
+      background: "#FFFFFF",
+      borderBottom: "1px solid #E8ECF0",
+      padding: isMobile ? "12px 16px" : "0 32px",
+      minHeight: isMobile ? 72 : 64,
+      display: "flex",
+      alignItems: isMobile ? "flex-start" : "center",
+      justifyContent: "space-between",
+      gap: 12,
+      flexWrap: "wrap",
+      position: isMobile ? "static" : "sticky",
+      top: 0,
+      zIndex: 40,
+    },
+    content: { padding: isMobile ? "14px 12px 24px" : "24px 32px", minWidth: 0 },
     card: { background: "#FFFFFF", borderRadius: 12, border: "1px solid #E8ECF0", overflow: "hidden" },
     metricCard: (accent) => ({
       background: "#FFFFFF", borderRadius: 12, border: "1px solid #E8ECF0", padding: "20px 24px",
-      borderLeft: `4px solid ${accent}`, position: "relative",
+      borderLeft: `4px solid ${accent}`, position: "relative", minWidth: 0,
     }),
   };
 
@@ -407,7 +459,7 @@ export default function SmartClerkDashboard() {
     <div style={styles.app}>
       {notification && (
         <div style={{
-          position: "fixed", bottom: 24, right: 24, zIndex: 999, background: "#1A1D21", color: "#fff",
+          position: "fixed", bottom: isMobile ? 14 : 24, right: isMobile ? 12 : 24, left: isMobile ? 12 : "auto", zIndex: 999, background: "#1A1D21", color: "#fff",
           padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 500,
           display: "flex", alignItems: "center", gap: 8, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
           animation: "slideUp 0.3s ease"
@@ -426,7 +478,7 @@ export default function SmartClerkDashboard() {
 
       {/* Sidebar */}
       <aside style={styles.sidebar}>
-        <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid #E8ECF0" }}>
+        <div style={{ padding: isMobile ? "12px 14px 8px" : "20px 20px 16px", borderBottom: isMobile ? "none" : "1px solid #E8ECF0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #2563EB, #7C3AED)",
@@ -441,8 +493,14 @@ export default function SmartClerkDashboard() {
           </div>
         </div>
 
-        <div style={{ padding: "12px 12px 8px" }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.8px", textTransform: "uppercase", padding: "0 8px 8px" }}>
+        <div style={{
+          padding: isMobile ? "6px 12px 10px" : "12px 12px 8px",
+          display: isMobile ? "flex" : "block",
+          gap: isMobile ? 8 : 0,
+          overflowX: isMobile ? "auto" : "visible",
+          scrollbarWidth: "none",
+        }}>
+          <div style={{ display: isMobile ? "none" : "block", fontSize: 10, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.8px", textTransform: "uppercase", padding: "0 8px 8px" }}>
             Menu
           </div>
           {TAB_CONFIG.map(t => {
@@ -450,12 +508,13 @@ export default function SmartClerkDashboard() {
             const Icon = t.icon;
             return (
               <button key={t.key} onClick={() => setTab(t.key)} style={{
-                width: "100%", display: "flex", alignItems: "center", gap: 10,
+                width: isMobile ? "auto" : "100%", display: "flex", alignItems: "center", gap: 10,
+                flexShrink: 0,
                 padding: "10px 12px", borderRadius: 8, border: "none", cursor: "pointer",
                 background: active ? "#EFF6FF" : "transparent",
                 color: active ? "#2563EB" : "#64748B",
                 fontWeight: active ? 600 : 500, fontSize: 13,
-                marginBottom: 2, transition: "all 0.15s",
+                marginBottom: isMobile ? 0 : 2, transition: "all 0.15s",
               }}>
                 <Icon size={18} />
                 {t.label}
@@ -471,7 +530,7 @@ export default function SmartClerkDashboard() {
           })}
         </div>
 
-        <div style={{ marginTop: "auto", padding: 16, borderTop: "1px solid #E8ECF0" }}>
+        <div style={{ marginTop: isMobile ? 0 : "auto", padding: isMobile ? "0 12px 12px" : 16, borderTop: isMobile ? "none" : "1px solid #E8ECF0" }}>
           <div style={{
             background: aiActive ? "#F0FDF4" : "#FEF2F2", borderRadius: 10, padding: "12px 14px",
             border: `1px solid ${aiActive ? "#BBF7D0" : "#FECACA"}`,
@@ -548,7 +607,7 @@ export default function SmartClerkDashboard() {
           {tab === "dashboard" && (
             <div>
               {/* Metrics */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 14 : 24 }}>
                 {[
                   { label: "Today's revenue", value: `₹${fmt(todayRevenue)}`, icon: IndianRupee, color: P.green, sub: "1 order completed" },
                   { label: "Active orders", value: activeOrders.length, icon: ShoppingBag, color: P.blue, sub: `${orders.length} total` },
@@ -573,7 +632,7 @@ export default function SmartClerkDashboard() {
                 ))}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.6fr", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.4fr) minmax(280px, 0.6fr)", gap: isMobile ? 14 : 20 }}>
                 {/* Live orders */}
                 <div style={styles.card}>
                   <div style={{
@@ -602,8 +661,8 @@ export default function SmartClerkDashboard() {
                         background: o.status === "pending" ? "#F0FDF4" : "#FFFBEB",
                         borderRadius: 10, padding: 16, marginBottom: 12,
                       }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center", gap: 12, flexDirection: isMobile ? "column" : "row" }}>
+                          <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 600 }}>{o.quantity}× {o.itemName}</div>
                             <div style={{ fontSize: 12, color: "#64748B", marginTop: 4 }}>
                               {o.customerName || o.customerPhone} · ₹{fmt(o.amount)} · {timeAgo(o.createdAt)}
@@ -616,7 +675,7 @@ export default function SmartClerkDashboard() {
                             color: o.status === "pending" ? "#166534" : "#92400E",
                           }}>{o.status === "pending" ? "Pack this" : o.status}</span>
                         </div>
-                        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                           {o.status === "pending" && (
                             <button onClick={() => updateOrder(o.id, "packed")} style={{
                               padding: "6px 14px", borderRadius: 6, border: "1px solid #16A34A",
@@ -692,22 +751,25 @@ export default function SmartClerkDashboard() {
                       {whatsappPhase}
                     </span>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", width: isMobile ? "100%" : "auto" }}>
                     <button onClick={() => void updateWhatsAppSession("start")} style={{
                       padding: "8px 14px", borderRadius: 8, border: "none", cursor: "pointer",
                       background: P.blue, color: "#fff", fontSize: 12, fontWeight: 700,
+                      flex: isMobile ? "1 1 100%" : "0 0 auto",
                     }}>Start / show QR</button>
                     <button onClick={() => void updateWhatsAppSession("stop")} style={{
                       padding: "8px 14px", borderRadius: 8, border: "1px solid #E2E8F0", cursor: "pointer",
                       background: "#fff", color: "#DC2626", fontSize: 12, fontWeight: 700,
+                      flex: isMobile ? "1 1 0" : "0 0 auto",
                     }}>Stop</button>
                     <button onClick={() => void updateWhatsAppSession("reset")} style={{
                       padding: "8px 14px", borderRadius: 8, border: "1px solid #E2E8F0", cursor: "pointer",
                       background: "#fff", color: "#64748B", fontSize: 12, fontWeight: 700,
+                      flex: isMobile ? "1 1 0" : "0 0 auto",
                     }}>Reset QR</button>
                   </div>
                 </div>
-                <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "center" }}>
+                <div style={{ padding: isMobile ? 14 : 20, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 220px", gap: isMobile ? 14 : 20, alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 13, color: "#475569", fontWeight: 500, marginBottom: 8 }}>
                       {whatsappHelperText}
@@ -730,10 +792,10 @@ export default function SmartClerkDashboard() {
                     )}
                   </div>
                   <div style={{
-                    width: 220, height: 220, borderRadius: 12, border: "1px dashed #CBD5E1",
+                    width: isMobile ? "100%" : 220, maxWidth: 220, height: isMobile ? 180 : 220, borderRadius: 12, border: "1px dashed #CBD5E1",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     background: "#F8FAFC", textAlign: "center", color: "#64748B", fontSize: 12,
-                    overflow: "hidden"
+                    overflow: "hidden", justifySelf: isMobile ? "center" : "auto"
                   }}>
                     {whatsappStatus.qrDataUrl ? (
                       <img src={whatsappStatus.qrDataUrl} alt="WhatsApp QR" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
@@ -759,7 +821,7 @@ export default function SmartClerkDashboard() {
           {/* ===== STOCK ===== */}
           {tab === "stock" && (
             <div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 14 : 24 }}>
                 {[
                   { label: "Active SKUs", value: activeProducts.length, color: P.blue },
                   { label: "Total units", value: fmt(totalUnits), color: P.green },
@@ -782,23 +844,23 @@ export default function SmartClerkDashboard() {
                     <Boxes size={18} color={P.blue} />
                     <span style={{ fontSize: 14, fontWeight: 600 }}>Available stock</span>
                   </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <div style={{ position: "relative" }}>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", width: isMobile ? "100%" : "auto" }}>
+                    <div style={{ position: "relative", flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
                       <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94A3B8" }} />
                       <input placeholder="Search items..." value={stockSearch} onChange={e => setStockSearch(e.target.value)}
                         style={{
                           padding: "8px 12px 8px 32px", borderRadius: 8, border: "1px solid #E2E8F0",
-                          fontSize: 13, width: 220, background: "#F8FAFC"
+                          fontSize: 13, width: isMobile ? "100%" : 220, background: "#F8FAFC"
                         }} />
                     </div>
                     <select value={stockCategory} onChange={e => setStockCategory(e.target.value)}
-                      style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC" }}>
+                      style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC", width: isMobile ? "100%" : "auto" }}>
                       {categories.map(c => <option key={c} value={c}>{c === "all" ? "All categories" : c}</option>)}
                     </select>
                   </div>
                 </div>
                 <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: "#F8FAFC" }}>
                         {["Item", "Category", "Stock", "Price", "Value", "Status", "Aliases"].map(h => (
@@ -847,13 +909,15 @@ export default function SmartClerkDashboard() {
           {tab === "catalog" && (
             <div>
               {/* Voice bar */}
-              <div style={{ ...styles.card, padding: "16px 20px", marginBottom: 20 }}>
+              <div style={{ ...styles.card, padding: isMobile ? "14px" : "16px 20px", marginBottom: isMobile ? 14 : 20 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <button onClick={startVoice} style={{
                     display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
                     borderRadius: 8, border: "none", cursor: "pointer",
                     background: isListening ? "#DC2626" : "linear-gradient(135deg, #2563EB, #7C3AED)",
                     color: "#fff", fontSize: 13, fontWeight: 600,
+                    width: isMobile ? "100%" : "auto",
+                    justifyContent: "center",
                   }}>
                     {isListening ? <MicOff size={16} /> : <Mic size={16} />}
                     {isListening ? "Stop listening" : "Update stock via voice"}
@@ -861,17 +925,18 @@ export default function SmartClerkDashboard() {
                   <input placeholder='Try: "Add 10 SG Cricket balls"' value={voiceText}
                     onChange={e => setVoiceText(e.target.value)}
                     style={{
-                      flex: 1, minWidth: 260, padding: "10px 14px", borderRadius: 8,
+                      flex: 1, minWidth: isMobile ? "100%" : 260, padding: "10px 14px", borderRadius: 8,
                       border: "1px solid #E2E8F0", fontSize: 13, background: "#F8FAFC"
                     }} />
                   <button onClick={() => void applyVoiceText()} style={{
                     padding: "10px 18px", borderRadius: 8, border: "1px solid #E2E8F0",
-                    background: "#fff", fontSize: 13, fontWeight: 600, color: P.blue, cursor: "pointer"
+                    background: "#fff", fontSize: 13, fontWeight: 600, color: P.blue, cursor: "pointer",
+                    width: isMobile ? "100%" : "auto",
                   }}>Apply</button>
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 340px", gap: isMobile ? 14 : 20 }}>
                 {/* Catalog table */}
                 <div style={styles.card}>
                   <div style={{
@@ -888,7 +953,7 @@ export default function SmartClerkDashboard() {
                     </div>
                   </div>
                   <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <table style={{ width: "100%", minWidth: 820, borderCollapse: "collapse", fontSize: 13 }}>
                       <thead>
                         <tr style={{ background: "#F8FAFC" }}>
                           {["Item name", "Category", "Price (₹)", "Stock", "Aliases", ""].map(h => (
@@ -1026,9 +1091,9 @@ export default function SmartClerkDashboard() {
 
           {/* ===== CONVERSATIONS ===== */}
           {tab === "conversations" && (
-            <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 20, height: "calc(100vh - 140px)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "260px minmax(0, 1fr)", gap: isMobile ? 14 : 20, height: isMobile ? "auto" : "calc(100vh - 140px)" }}>
               {/* Customer list */}
-              <div style={{ ...styles.card, display: "flex", flexDirection: "column" }}>
+              <div style={{ ...styles.card, display: "flex", flexDirection: "column", maxHeight: isMobile ? 220 : "none" }}>
                 <div style={{
                   padding: "16px 20px", borderBottom: "1px solid #E8ECF0",
                   display: "flex", alignItems: "center", gap: 8
@@ -1070,10 +1135,11 @@ export default function SmartClerkDashboard() {
               </div>
 
               {/* Chat view */}
-              <div style={{ ...styles.card, display: "flex", flexDirection: "column" }}>
+              <div style={{ ...styles.card, display: "flex", flexDirection: "column", minHeight: isMobile ? 560 : "auto" }}>
                 <div style={{
                   padding: "14px 20px", borderBottom: "1px solid #E8ECF0",
-                  display: "flex", alignItems: "center", justifyContent: "space-between"
+                  display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", gap: 12,
+                  flexDirection: isMobile ? "column" : "row"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{
@@ -1092,6 +1158,7 @@ export default function SmartClerkDashboard() {
                       padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer",
                       background: humanTakeover ? "#16A34A" : "#DC2626", color: "#fff",
                       fontSize: 12, fontWeight: 600,
+                      width: isMobile ? "100%" : "auto",
                     }}>
                     {humanTakeover ? "Release to AI" : "Take over chat"}
                   </button>
@@ -1107,7 +1174,7 @@ export default function SmartClerkDashboard() {
                       justifyContent: m.direction === "inbound" ? "flex-start" : "flex-end"
                     }}>
                       <div style={{
-                        maxWidth: "70%", padding: "10px 14px", borderRadius: 12,
+                        maxWidth: isMobile ? "88%" : "70%", padding: "10px 14px", borderRadius: 12,
                         background: m.direction === "inbound" ? "#FFFFFF" : m.actor === "owner" ? "#DBEAFE" : "#DCFCE7",
                         border: `1px solid ${m.direction === "inbound" ? "#E2E8F0" : m.actor === "owner" ? "#93C5FD" : "#BBF7D0"}`,
                         borderBottomLeftRadius: m.direction === "inbound" ? 4 : 12,
@@ -1127,13 +1194,13 @@ export default function SmartClerkDashboard() {
                 {humanTakeover && (
                   <div style={{
                     padding: "14px 20px", borderTop: "1px solid #E8ECF0",
-                    display: "flex", gap: 10
+                    display: "flex", gap: 10, flexWrap: "wrap"
                   }}>
                     <input placeholder="Type your reply..." value={replyText}
                       onChange={e => setReplyText(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && sendReply()}
                       style={{
-                        flex: 1, padding: "10px 14px", borderRadius: 8,
+                        flex: "1 1 220px", padding: "10px 14px", borderRadius: 8,
                         border: "1px solid #E2E8F0", fontSize: 13
                       }} />
                     <button onClick={sendReply} style={{

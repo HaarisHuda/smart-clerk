@@ -1,0 +1,189 @@
+--- SLIDE 1 ---
+Your Shop. Your Catalog. Your AI Clerk.
+Upgrade your retail store with a WhatsApp AI clerk that answers stock and price queries, reserves pickup orders, and alerts your counter dashboard — automatically.
+SMART-CLERK.SOLVOR.CO.IN
+SMART-CLERK-ENTERPRISE.SOLVOR.CO.IN
+Pictures: 1
+  - Google Shape;46;p13 1440x2160 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide1_image21.png
+--- SLIDE 2 ---
+Busy counters lose WhatsApp sales every day.
+👋
+ Owner is occupied
+Serving walk-in customers at the counter — no time to check WhatsApp.
+📵
+ Queries go unanswered
+Price and stock messages pile up. Customers wait. Patience runs out.
+🏃
+ They buy elsewhere
+Competitors who reply faster win the sale — every single time.
+📓
+ Data is scattered
+Catalog lives in notebooks, memory, and half-updated Google Sheets.
+Pictures: 1
+  - Google Shape;58;p14 1440x2160 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide2_image30.png
+--- SLIDE 3 ---
+One Platform. Three Users Served.
+Smart Clerk connects your customers, your counter, and your staff — all through a single AI-powered system.
+Customers
+Ask on WhatsApp, get 
+instant stock and price replies
+ — no waiting, no calling.
+Shop Owner
+Watch orders, stock levels, and AI conversations 
+live from your dashboard.
+Staff
+Receive clear 
+"Pack This Item"
+ order cards — no confusion, no missed orders.
+Pictures: 3
+  - Google Shape;79;p15 634x634 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide3_image14.png
+  - Google Shape;82;p15 634x634 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide3_image12.png
+  - Google Shape;85;p15 634x634 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide3_image8.png
+--- SLIDE 4 ---
+WHATSAPP AI CLERK
+The AI clerk replies while the owner stays at the counter.
+Customer asks: 
+"Bhaiya Nivia tennis ball hai kya?"
+AI instantly 
+checks your catalog cache
+ for stock and price.
+Replies in 
+Hinglish
+ with availability and price details.
+Asks: 
+"Kitne pieces chahiye?"
+ — confirms quantity before reserving.
+Owner can pause AI or take over any conversation anytime.
+Pictures: 7
+  - Google Shape;93;p16 1640x930 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide4_image25.png
+  - Google Shape;95;p16 36x36 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide4_image4.png
+  - Google Shape;98;p16 66x66 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide4_image10.png
+  - Google Shape;100;p16 66x66 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide4_image10.png
+  - Google Shape;102;p16 66x66 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide4_image10.png
+  - Google Shape;104;p16 66x66 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide4_image10.png
+  - Google Shape;107;p16 56x44 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide4_image2.png
+--- SLIDE 5 ---
+Catalog Management That Shop Owners Already Understand.
+No new software to learn. 
+Google Sheets stays your source of truth.
+ Smart Clerk syncs with it and gives your team a clean dashboard to manage everything in one place.
+Item Name
+Category
+Price
+Stock
+Aliases
+Nivia Tennis Ball
+Cricket
+₹120
+24
+tennis ball, nivia
+SG Cricket Bat
+Cricket
+₹1,800
+6
+sg bat, bat
+Cosco Football
+Football
+₹650
+11
+football, cosco
+Yonex Shuttlecock
+Badminton
+₹220
+30
+shuttle, yonex
+📋
+ Dashboard Table
+Edit items, prices, and stock directly in-app.
+📥
+ CSV Import
+Upload your full inventory in one go.
+🎙️
+ Voice Updates
+Say "Add 10 SG cricket balls" and it's done.
+Pictures: 0
+--- SLIDE 6 ---
+Every Confirmed Order Appears at the Counter.
+Live Order Cards
+New pickup orders appear instantly with a notification sound.
+Low-Stock Alerts
+Know what needs reordering before you run out.
+Order Actions
+Mark orders as Packed, Completed, or Cancelled with one tap.
+Pictures: 7
+  - Google Shape;156;p18 1440x2160 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide6_image20.png
+  - Google Shape;159;p18 170x170 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide6_image6.png
+  - Google Shape;160;p18 76x76 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide6_image9.png
+  - Google Shape;164;p18 170x170 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide6_image19.png
+  - Google Shape;165;p18 76x76 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide6_image31.png
+  - Google Shape;169;p18 170x170 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide6_image1.png
+  - Google Shape;170;p18 76x76 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide6_image3.png
+--- SLIDE 7 ---
+From Chat to Counter Order in Seconds.
+The complete pickup flow — zero manual steps for your staff.
+Customer Message
+Customer asks via WhatsApp
+AI Price Check
+AI checks catalog and replies price
+Quantity Confirm
+Customer confirms quantity
+Pack Notification
+Dashboard shows PACK THIS ITEM amount
+Example alert on dashboard:
+ "New Order: 2× Nivia Tennis Ball — Collect ₹240. Customer: Rahul S."
+Pictures: 6
+  - Google Shape;180;p19 2500x1125 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide7_image33.png
+  - Google Shape;183;p19 80x80 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide7_image29.png
+  - Google Shape;186;p19 80x80 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide7_image11.png
+  - Google Shape;189;p19 80x80 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide7_image17.png
+  - Google Shape;192;p19 80x80 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide7_image32.png
+  - Google Shape;194;p19 44x34 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide7_image15.png
+--- SLIDE 8 ---
+STOCK PROTECTION
+No Accidental Double-Selling.
+Smart Clerk's reservation system ensures your stock count is always accurate — even during peak hours.
+Confident Confirmation Only
+Stock deducted only when customer clearly confirms quantity.
+Per-SKU Locking
+Last item can't be reserved by two customers at the same time.
+Smart Clarification
+Vague messages trigger a follow-up question — never a deduction.
+Pictures: 5
+  - Google Shape;201;p20 1780x1780 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide8_image27.png
+  - Google Shape;202;p20 1780x1780 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide8_image13.png
+  - Google Shape;208;p20 16x158 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide8_image24.png
+  - Google Shape;212;p20 16x158 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide8_image24.png
+  - Google Shape;216;p20 16x158 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide8_image24.png
+--- SLIDE 9 ---
+The Owner Is Always in Control.
+Smart Clerk is AI-assisted, not AI-autonomous. Every decision stays with the owner.
+Full Conversation Log
+Every AI reply is visible and reviewable in your dashboard.
+Take Over Chat
+Disable AI for any individual customer and reply manually.
+Global Pause
+Pause the AI across all chats instantly — one tap.
+Group chats and personal messages are automatically ignored.
+Pictures: 2
+  - Google Shape;225;p21 1748x990 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide9_image28.png
+  - Google Shape;237;p21 60x48 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide9_image26.png
+--- SLIDE 10 ---
+Simple Pricing for First Shop Pilots.
+No hidden charges. No lock-in surprises. Everything you need to go live.
+Setup
+₹6,999
+One-time setup fee
+Catalog setup & data import
+Dashboard onboarding
+WhatsApp demo flow
+Pickup order system
+Monthly Maintenance
+₹1,999
+Per month, after setup
+AI monitoring & prompt tuning
+Bug fixes & updates
+Small workflow changes
+Priority support
+Start with one store. See results in the first week. Scale when ready.
+Pictures: 1
+  - Google Shape;259;p22 70x56 E:\Smart-Clerk-Auto-Catalog\tmp_pptx_review\slide10_image16.png
